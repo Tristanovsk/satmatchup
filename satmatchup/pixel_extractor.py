@@ -1,74 +1,81 @@
+import os, sys
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib import colors as c
+from matplotlib.backends.backend_pdf import PdfPages
 
-command_xml='
-<parameters>
-    <sourceProductPaths>/DATA/Satellite/SENTINEL2/venice/L2h/**/*dim,/DATA/Satellite/SENTINEL2/venice/L2aero/*dim</sourceProductPaths>
-    <exportBands>true</exportBands>
-    <exportTiePoints>true</exportTiePoints>
-    <exportMasks>true</exportMasks>
-    <coordinates>
-        <coordinate>
-            <name>Venise</name>
-            <latitude>45.3139</latitude>
-            <longitude>12.5083</longitude>
-            <originalValues/>
-            <id>0</id>
-        </coordinate>
-    </coordinates>
-    <timeDifference/>
-    <windowSize>7</windowSize>
-    <outputFilePrefix>pixEx</outputFilePrefix>
-    <exportExpressionResult>true</exportExpressionResult>
-    <aggregatorStrategyType>no aggregation</aggregatorStrategyType>
-    <exportSubScenes>true</exportSubScenes>
-    <subSceneBorderSize>0</subSceneBorderSize>
-    <exportKmz>false</exportKmz>
-    <extractTimeFromFilename>true</extractTimeFromFilename>
-    <dateInterpretationPattern>yyyyMMdd</dateInterpretationPattern>
-    <filenameInterpretationPattern>*${startDate}*${endDate}*</filenameInterpretationPattern>
-    <includeOriginalInput>false</includeOriginalInput>
-</parameters>'
+from mpl_toolkits.basemap import Basemap, shiftgrid
+import datetime
+import dask
+import toolz
+import cartopy.crs as ccrs
+import xarray as xr
+import shapely
+from shapely.wkt import dumps, loads
+import rasterio
+import regionmask
 
-Product:	S2B_MSIL2grs_20180927T103019_N0206_R108_T31TGK_20180927T143835
+from rasterio.mask import mask
 
-Image-X:	198	pixel
-Image-Y:	327	pixel
-Longitude:	6°19'13" E	degree
-Latitude:	44°30'14" N	degree
+from satmatchup import utils as u
 
-BandName	Wavelength	Unit	Bandwidth	Unit	Value	Unit	Solar Flux	Unit
-flags:					0
-Lwn_g_B1:	442.311	nm	58.0	nm	1.15130
-Lwn_g_B2:	492.1326	nm	130.0	nm	1.67281
-Lwn_g_B3:	558.9499	nm	100.0	nm	1.38088
-Lwn_g_B4:	664.938	nm	90.0	nm	0.02857
-Lwn_g_B5:	703.8308	nm	97.0	nm	0.02403
-Lwn_g_B6:	739.129	nm	40.0	nm	0.03669
-Lwn_g_B7:	779.7236	nm	71.0	nm	0.05549
-Lwn_g_B8:	832.9462	nm	175.0	nm	0.04742
-Lwn_g_B8A:	863.9796	nm	79.0	nm	0.04516
-Lwn_g_B11:	1610.4191	nm	172.0	nm	0.01878
-Lwn_g_B12:	2185.6987	nm	276.0	nm	0.00970
-Lwn_B1:	442.311	nm	58.0	nm	1.11465
-Lwn_B2:	492.1326	nm	130.0	nm	1.63038
-Lwn_B3:	558.9499	nm	100.0	nm	1.33794
-Lwn_B4:	664.938	nm	90.0	nm	-0.00947
-Lwn_B5:	703.8308	nm	97.0	nm	-0.01235
-Lwn_B6:	739.129	nm	40.0	nm	0.00340
-Lwn_B7:	779.7236	nm	71.0	nm	0.02488
-Lwn_B8:	832.9462	nm	175.0	nm	0.02006
-Lwn_B8A:	863.9796	nm	79.0	nm	0.01998
-Lwn_B11:	1610.4191	nm	172.0	nm	-0.00261
-Lwn_B12:	2185.6987	nm	276.0	nm	0.00106
-BRDFg:					0.67172
-SZA:					47.41843
-VZA:					0.50358
-AZI:					283.47034
+site = "LISCO"
+lon, lat = -73.341767, 40.954517
+files = '/DATA/Satellite/SENTINEL2/acix/*' + site + '*.nc'
+ofile = '/DATA/projet/ACIXII/matchup/matchup_'+site+'_acixii.csv'
 
+# load image data
+ds = xr.open_mfdataset(files, concat_dim='time', preprocess=u.get_time)
+ds = ds.dropna('time', how='all')
 
-flags.nodata:	false
-flags.negative:	false
-flags.ndwi:	false
-flags.ndwi_corr:	false
-flags.high_nir:	false
-flags.empty:	false
-flags.empty:	false
+# set ROI mask
+shape = loads(u.wktbox(lon, lat, width=100, height=100))
+umask = regionmask.Regions_cls('roi_mask', [0], ['roi matchup'], ['roi'], [shape])
+roi = umask.mask(ds.coords)
+ds['roi'] = roi
+
+ds.where(roi == 0)['Rrs_B2'].isel().plot(x='lon', y='lat', col='time', col_wrap=4, robust=True)
+
+print(ds['Rrs_B2'])
+vmax = round(ds['Rrs_B2'].to_dataframe().median()[-1] * 3, 4)
+u.plot()._plot_image(ds['Rrs_B2'], vmax=vmax, title=site, filename='test' + site + '.png')
+
+data = ds['Rrs_B2']
+
+fig, (ax, cax) = plt.subplots(nrows=2, figsize=(15, 35),
+                              gridspec_kw={"height_ratios": [1, 0.05]})
+p = data.isel().plot(x='lon', y='lat', col='time', col_wrap=4, robust=True, size=10, cmap='viridis',
+                     cbar_kwargs=dict(orientation='horizontal', pad=.1, aspect=40, shrink=0.6))
+for i, ax in enumerate(p.axes.flat):
+    if i >= data.time.shape[0]:
+        break
+    ax.set_title(pd.to_datetime(data.time[i].values))
+p.cbar
+p.fig.set_size_inches(15, 40)
+p.fig.suptitle(site)
+p.fig.subplots_adjust(bottom=0.1, top=0.9, left=0.08, right=0.92, wspace=0.02, hspace=0.2)
+p.fig.savefig('test' + site + '.png')
+
+# -------------------------
+# apply mask from wkt
+ds_roi = ds.where(roi == 0)
+
+# -------------------------
+# compute statistics over the ROI along time
+vars = ['Rrs_B1', 'Rrs_B2', 'Rrs_B3', 'Rrs_B4', 'Rrs_B5', 'Rrs_B6', 'Rrs_B7', 'Rrs_B8', 'Rrs_B8A']
+roi_df = ds_roi[vars].to_dataframe().drop(['lat', 'lon'], axis=1)
+matchup = roi_df.groupby('time').describe()
+# matchup.to_csv(ofile)
+matchup.iloc[:, [1, 9, 17, 25, 33]].plot(marker='o')
+#
+# with PdfPages('multipage_pdf.pdf') as pdf:
+#     time = range(12)
+#     p = b2.isel().plot(x='lon', y='lat', col='time', col_wrap=10, robust=True, size=10)
+#
+#     p.fig.savefig(p.fig, bbox_inches='tight')
+#
+# tmp = ds[['lat', 'lon', 'Rrs_g_B2', 'Rrs_B2']].to_dataframe()
+#
+# b2.isel(x=10, y=[10, 20]).plot()
+# b2.isel(x=10, y=[10, 20]).plot.line(x='time', marker='o')
