@@ -9,30 +9,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from osgeo import ogr
-
-# Create outer ring
-outRing = ogr.Geometry(ogr.wkbLinearRing)
-outRing.AddPoint(1154115.274565847, 686419.4442701361)
-outRing.AddPoint(1154115.274565847, 653118.2574374934)
-outRing.AddPoint(1165678.1866605144, 653118.2574374934)
-outRing.AddPoint(1165678.1866605144, 686419.4442701361)
-outRing.AddPoint(1154115.274565847, 686419.4442701361)
-
-# Create inner ring
-innerRing = ogr.Geometry(ogr.wkbLinearRing)
-innerRing.AddPoint(1149490.1097279799, 691044.6091080031)
-innerRing.AddPoint(1149490.1097279799, 648030.5761158396)
-innerRing.AddPoint(1191579.1097525698, 648030.5761158396)
-innerRing.AddPoint(1191579.1097525698, 691044.6091080031)
-innerRing.AddPoint(1149490.1097279799, 691044.6091080031)
-
-# Create polygon
-poly = ogr.Geometry(ogr.wkbPolygon)
-poly.AddGeometry(outRing)
-poly.AddGeometry(innerRing)
-
-print(poly.ExportToWkt())
 
 def get_time(ds,key='start_date'):
 
@@ -121,6 +97,39 @@ def rasterize(shapes, coords, latitude='lat', longitude='lon',
     spatial_coords = {latitude: coords[latitude], longitude: coords[longitude]}
     return xr.DataArray(raster, coords=spatial_coords, dims=(latitude, longitude))
 
+class data:
+    def __init__(self):
+        pass
+
+    def read_aeronet_ocv3(self, file, skiprows=8):
+        ''' Read and format in pandas data.frame the standard AERONET-OC data '''
+        self.file = file
+        dateparse = lambda x: pd.datetime.strptime(x, "%d:%m:%Y %H:%M:%S")
+        ifile=self.file
+
+        h1 = pd.read_csv(ifile, skiprows=skiprows - 1, nrows=1).columns[3:]
+        h1 = np.insert(h1,0,'site')
+        data_type = h1.str.replace('\[.*\]', '')
+        data_type = data_type.str.replace('Exact_Wave.*', 'wavelength')
+        #convert into float to order the dataframe with increasing wavelength
+        h2 = h1.str.replace('.*\[', '')
+        h2 = h2.str.replace('nm\].*', '')
+        h2 = h2.str.replace('Exact_Wavelengths\(um\)_','')
+        h2 = pd.to_numeric(h2, errors='coerce') #h2.str.extract('(\d+)').astype('float')
+        h2 = h2.fillna('').T
+        df = pd.read_csv(ifile, skiprows=skiprows, na_values=['N/A', -999.0,-9.999999 ], parse_dates={'date': [1, 2]},
+                         date_parser=dateparse, index_col=False)
+
+        # df['site'] = site
+        # df.set_index(['site', 'date'],inplace=True)
+        df.set_index('date', inplace=True)
+
+        tuples = list(zip(h1, data_type, h2))
+        df.columns = pd.MultiIndex.from_tuples(tuples, names=['l0', 'l1', 'l2'])
+        df = df.dropna(axis=1, how='all').dropna(axis=0, how='all')
+        df.columns = pd.MultiIndex.from_tuples([(x[0], x[1], x[2]) for x in df.columns])
+        df.sort_index(axis=1, level=2, inplace=True)
+        return df
 
 class plot:
     def __init__(self):
