@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-odir='../OCv3/'
+odir='/nfs/DD/aeronet/OCv3/'
 
 year=2015 #02
 
