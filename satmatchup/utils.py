@@ -5,8 +5,6 @@ from rasterio import features
 from affine import Affine
 import xarray as xr
 
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 

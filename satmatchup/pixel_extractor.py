@@ -1,11 +1,12 @@
 import os, sys
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib import colors as c
-from matplotlib.backends.backend_pdf import PdfPages
 
-from mpl_toolkits.basemap import Basemap, shiftgrid
+import matplotlib.pyplot as plt
+# from matplotlib import colors as c
+# from matplotlib.backends.backend_pdf import PdfPages
+
+#from mpl_toolkits.basemap import Basemap, shiftgrid
 import datetime
 import dask
 import toolz
@@ -13,24 +14,44 @@ import cartopy.crs as ccrs
 import xarray as xr
 import shapely
 from shapely.wkt import dumps, loads
-import rasterio
-import regionmask
 
-from rasterio.mask import mask
+import regionmask
 
 from satmatchup import utils as u
 
-site = "LISCO"
-lon, lat = -73.341767, 40.954517
-files = '/DATA/Satellite/SENTINEL2/acix/*' + site + '*.nc'
-aeronet_file = '/DATA/AERONET/OCv3/' + site + '_OCv3.lev20'
-ofile = '/DATA/projet/ACIXII/matchup/matchup_'+site+'_acixii.csv'
-ofig = '/DATA/projet/ACIXII/matchup/images_' + site + '.png'
+mistraou=True
 write=True
 
+
+if mistraou:
+    satdir = '/nfs/DP/S2/L2/GRS/acix/netcdf/'
+    aeronetdir = '/nfs/DD/aeronet/OCv3/'
+    odir = '/local/AIX/tristan.harmel/project/acix/matchup/data'
+    figdir = '/local/AIX/tristan.harmel/project/acix/matchup/fig'
+else:
+    satdir = '/DATA/Satellite/SENTINEL2/acix/'
+    aeronetdir = '/DATA/AERONET/OCv3/'
+    odir = '/DATA/projet/ACIXII/matchup/'
+    figdir ='/DATA/projet/ACIXII/matchup/'
+
+
+
+site = "LISCO"
+lon, lat = -73.341767, 40.954517
+
+info = pd.read_csv('aeronet/aeronet_oc_locations_v3.csv')
+site,lon, lat,alt = info.iloc[1,].values
+for idx,row in info.iterrows():
+    site,lon, lat,alt = row.values
+
+files = satdir+'/*' + site + '*.nc'
+aeronet_file = aeronetdir + site + '_OCv3.lev20'
+ofile = os.path.join(odir,'matchup_'+site+'_acixii.csv')
+ofig = os.path.join(figdir,'images_' + site + '.png')
+
+
 # load image data
-f = '/DATA/Satellite/SENTINEL2/acix/S2A_MSIl2grs_20170801T155131_N0205_R011_T18TXL_20170801T155133_LISCO_GRS.nc'
-d = xr.open_dataset(f)
+
 ds = xr.open_mfdataset(files, concat_dim='time', preprocess=u.get_time, mask_and_scale=True)
 ds = ds.dropna('time', how='all')
 
@@ -62,7 +83,7 @@ ds_roi = ds.where(roi == 0)
 # apply Quality flag mask
 ds_roi = ds_roi.where(ds_roi.flags==0)
 plt.figure()
-ds_roi['Rrs_B2'].isel(time=22).plot(x='lon', y='lat', robust=True)
+ds_roi['Rrs_B2'].isel(time=0).plot(x='lon', y='lat', robust=True)
 ds_roi['Rrs_B2'].isel().plot(x='lon', y='lat', col='time', col_wrap=4, robust=True, size=10, cmap='viridis',
                      cbar_kwargs=dict(orientation='horizontal', pad=.1, aspect=40, shrink=0.6))
 
@@ -88,13 +109,13 @@ if write:
 
 aeronet_df = u.data().read_aeronet_ocv3(aeronet_file)
 
-aeronet_matchup = pd.merge_asof(matchup,aeronet_df,left_index=True, right_index=True)
+aeronet_matchup = pd.merge_asof(matchup,aeronet_df,left_index=True, right_index=True,tolerance=pd.Timedelta('2h'))
 aeronet_matchup.to_csv(ofile)
 
 # -------------------------
 # Plotting section
-vmax = round(ds['Rrs_B2'].to_dataframe().median()[-1] * 3, 4)
-u.plot()._plot_image(ds['Rrs_B2'], vmax=vmax, title=site, filename='test' + site + '.png')
+# vmax = round(ds['Rrs_B2'].to_dataframe().median()[-1] * 3, 4)
+# u.plot()._plot_image(ds['Rrs_B2'], vmax=vmax, title=site, filename='test' + site + '.png')
 
 data = ds['Rrs_B2']
 data= ds['flags']
