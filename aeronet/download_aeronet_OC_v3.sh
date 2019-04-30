@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 odir='/nfs/DD/aeronet/OCv3/'
 
-year=2015 #02
+year=2013 #02
 
 day2=31
 month2=12
 year2=2018
 
-for level in 20 #10 15 20 
+for level in 15 20 #10 15 20 
 do
  for site in 'Abu_Al_Bukhoosh' 'ARIAKE_TOWER' 'Bari_Waterfront' 'Blyth_NOAH' 'COVE_SEAPRISM' 'Gageocho_Station' 'Galata_Platform' 'Gloria' 'GOT_Seaprism' 'Gustav_Dalen_Tower' 'Helsinki_Lighthouse' 'Ieodo_Station' 'Irbe_Lighthouse' 'KAUST_Campus' 'Lake_Erie' 'Lake_Okeechobee' 'LISCO' 'Lucinda' 'MVCO' 'Palgrunden' 'Socheongcho' 'South_Greenbay' 'Thornton_C-power' 'USC_SEAPRISM' 'USC_SEAPRISM_2' 'Venise' 'WaveCIS_Site_CSI_6' 'Zeebrugge-MOW1'
 do
