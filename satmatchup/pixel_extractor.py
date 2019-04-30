@@ -21,7 +21,8 @@ from satmatchup import utils as u
 
 mistraou=True
 write=True
-
+# set time tolerance to combine insitu and sat data
+tolerance='4h'
 
 if mistraou:
     satdir = '/nfs/DP/S2/L2/GRS/acix/netcdf/'
@@ -109,7 +110,7 @@ if write:
 
 aeronet_df = u.data().read_aeronet_ocv3(aeronet_file)
 
-aeronet_matchup = pd.merge_asof(matchup,aeronet_df,left_index=True, right_index=True,tolerance=pd.Timedelta('2h'))
+aeronet_matchup = pd.merge_asof(matchup,aeronet_df,left_index=True, right_index=True,tolerance=pd.Timedelta(tolerance))
 aeronet_matchup.to_csv(ofile)
 
 # -------------------------

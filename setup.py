@@ -19,7 +19,8 @@ setup(
     author_email='tristan.harmel@ntymail.com',
     description='Utilities for matchup comparison of satellite pixel information with in-situ or ground-based measurements',
     # TODO update Dependent packages (distributions)
-    install_requires=['pandas', 'scipy', 'numpy', 'netCDF4', 'matplotlib', 'docopt', 'GDAL', 'python-dateutil'],
+    install_requires=['pandas', 'scipy', 'numpy', 'netCDF4', 'matplotlib',
+                      'xarray','shapely','regionmask','cartopy','docopt', 'GDAL', 'python-dateutil'],
 
     entry_points={
         'console_scripts': [
