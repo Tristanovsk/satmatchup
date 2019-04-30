@@ -7,6 +7,8 @@ import xarray as xr
 
 import matplotlib.pyplot as plt
 
+from scipy.interpolate import interp1d
+from .config import *
 
 def get_time(ds, key='start_date'):
     if key in ds.attrs.keys():
@@ -144,6 +146,27 @@ class data:
         df.sort_index(axis=1, level=2, inplace=True)
         return df
 
+
+class irradiance:
+    def __init__(self, F0_file=F0_file):
+        self.F0_file = F0_file
+
+    def load_F0(self, ):
+        self.F0df = pd.read_csv(self.F0_file, skiprows=15, sep='\t', header=None, names=('wl', 'F0'))
+
+    def get_F0(self, wl, mute=False):
+        '''
+        interpolate and return solar spectral irradiance (mW/m2/nm)
+
+        :param wl: wavelength in nm, scalar or np.array
+        :param mute: if true values are not returned (only saved in object)
+        :return:
+        '''
+        self.wl = wl
+        self.F0 = interp1d(self.F0df.wl, self.F0df.F0, fill_value='extrapolate')(wl)
+
+        if not mute:
+            return self.F0
 
 class plot:
     def __init__(self):
