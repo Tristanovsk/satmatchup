@@ -1,7 +1,7 @@
 import os, sys
 os.environ['HDF5_USE_FILE_LOCKING']='FALSE'
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('TkAgg')
 
 import numpy as np
 import pandas as pd
@@ -32,7 +32,7 @@ sensor=sensors[1]
 mistraou = True
 overwrite = False
 write = True
-plot = True
+plot = False #True
 # set time tolerance to combine insitu and sat data
 tolerance=pd.Timedelta('2h')
 
@@ -63,7 +63,7 @@ info = pd.read_csv('aeronet/aeronet_oc_locations_v3.csv')
 cmap = cm.tools.crop_by_percent(cm.cm.rain_r,25,which='both')
 
 for idx, row in info.iterrows():
-    if idx < 10:
+    if idx < 0:
         continue
     site, lon, lat, alt = row.values
 
@@ -74,7 +74,7 @@ for idx, row in info.iterrows():
         continue
 
     # set aeronet file
-    aeronet_file = aeronetdir + site + '_OCv3.lev20'
+    aeronet_file = aeronetdir + site + '_OCv3.lev15'
 
     # check if different tiles exist for a given site
     if 'S2' in sensor:
@@ -104,10 +104,16 @@ for idx, row in info.iterrows():
         for f in _files:
             d = xr.open_mfdataset(f)
             print(f,'xdim: ',d.dims.get('x'))
+            #remove empty arrays
+            if (d.SZA.values==0).all():
+                continue
             if d.dims.get('x') == xdim:
                 _f.append(f)
-
-
+        if _f == []:
+            with open(ofile, 'w'):
+                pass
+            continue
+        print('number of images: ',len(_f))
         ds = xr.open_mfdataset(_f, concat_dim='time', preprocess=u.get_time, mask_and_scale=True, engine='netcdf4')
         ds = ds.reindex(time=sorted(ds.time.values))
         print('processing site ' + site)
@@ -116,7 +122,7 @@ for idx, row in info.iterrows():
         # set ROI mask
         shape = loads(u.wktbox(lon, lat, width=100, height=100))
         exclude = loads(u.wktbox(lon, lat, width=30, height=30))
-
+        print('masking')
         umask = regionmask.Regions_cls('roi_mask', [0, 1], ['roi matchup', 'exclude'], ['roi', 'excl'], [shape, exclude])
         roi = umask.mask(ds.coords)
         ds['roi'] = roi
@@ -154,10 +160,11 @@ for idx, row in info.iterrows():
             # data= ds_roi['Rrs_B2']
             p = u.plot().plot_wrap(data, ofig, site,cmap=cmap)
             # matchup.iloc[:, [1, 9, 17, 25, 33]].plot(marker='o')
-        plt.close('all')
+            plt.close()
 
         # -------------------------
         # Merge with in situ data
+
         print('merging with in situ data...')
         try:
             aeronet_df = u.data().read_aeronet_ocv3(aeronet_file)
