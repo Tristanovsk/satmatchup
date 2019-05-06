@@ -49,6 +49,7 @@ else:
     aeronetdir = '/DATA/AERONET/OCv3/'
     odir = '/DATA/projet/ACIXII/matchup/'
     figdir = '/DATA/projet/ACIXII/matchup/'
+
 if 'S2' in sensor:
     vars = ['Rrs_B1', 'Rrs_B2', 'Rrs_B3', 'Rrs_B4', 'Rrs_B5', 'Rrs_B6', 'Rrs_B7', 'Rrs_B8', 'Rrs_B8A']
     wl = [442, 492, 559, 664, 704, 740, 782, 832, 864]
