@@ -25,10 +25,10 @@ import matplotlib.pyplot as plt
 # from matplotlib import colors as c
 # from matplotlib.backends.backend_pdf import PdfPages
 import cmocean as cm
-from satmatchup import utils as u
+from satmatchup import img_utils as u
 
 sensors=['S2','Landsat']
-sensor=sensors[1]
+sensor=sensors[0]
 mistraou = True
 overwrite = False
 write = True
