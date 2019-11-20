@@ -11,6 +11,7 @@ import pandas as pd
 import re
 from scipy import stats
 from satmatchup import utils as u
+from satmatchup.metrics import metrics
 
 irr = u.irradiance()
 irr.load_F0()
@@ -93,14 +94,80 @@ df_tot['wl_str'] = df_tot.wl.astype('str')
 # df_tot['row']=0
 # df_tot.loc[df_tot.wl>700,'row']=1
 
+
+
 import plotly.express as px
 import plotly.offline as po
 import plotly.graph_objs as go
 import plotly.figure_factory as ff
 
+
+
+# define parameters to be formated as decimal (.4f) or percentage (.2f)
+params_dec =['rmse', 'rmse_log', 'bias', 'bias_log', 'mae','slope', 'intercept', 'r_value']
+params_percent=['mae_log', 'mape']
 ncol = 4
+
+def table(stat_df):
+    table = go.Table(
+    columnwidth=[110,70],
+    header=dict(
+        #values=list(df.columns[1:]),
+        values=stat_df.keys().values,
+        font=dict(size=18),
+        line = dict(color='rgb(50, 50, 50)'),
+        align = ['left','center'],
+        height=40,
+        #fill = dict(color='#d562be'),
+    ),
+    cells=dict(
+        values=[stat_df[k].tolist() for k in stat_df.columns],
+        line = dict(color='rgb(50, 50, 50)'),
+        font=dict(size=15),
+        align = ['left','center'],
+        fill = dict(color=['rgba(255, 127, 14,0.8)', 'rgba(255, 127, 14, 0.23)']),
+        height=30
+        #fill = dict(color='#f5f5fa')
+    )
+    )
+    return [table]
+
+
+df_tot.rename(columns={"wl": "Wavelength (nm)"},inplace=True)
+publish=False
 for sensor in sensors:
-    dff = df_tot.loc[df_tot.satellite==sensor]
+    if sensor == 'all':
+        dff = df_tot
+    else:
+        dff = df_tot.loc[df_tot.satellite==sensor]
+
+    #------------------------
+    # tables summarizing metrics parameters
+    #------------------------
+    for by_ in ['site','Wavelength (nm)']:
+        stat = metrics(dff.Rrs, dff['Rrs_50%'])
+        stat_df = pd.DataFrame.from_records([stat.to_dict()])
+        if by_ == 'site':
+            stat_df[by_]= 'All sites'
+        else:
+            stat_df[by_] = 'All wavelengths'
+        for key, group in dff.groupby(by=by_):
+            print(key)
+            stat = metrics(group.Rrs,group['Rrs_50%'])
+            stat = pd.DataFrame.from_records([stat.to_dict()])
+            stat[by_]=key
+            stat_df = pd.concat([stat_df,stat])
+        stat_df.set_index(by_,inplace=True)
+        stat_df.reset_index(inplace=True)
+        stat_df[params_dec]=stat_df[params_dec].applymap(lambda x: '{:,.4f}'.format(x))
+        stat_df[params_percent]=stat_df[params_percent].applymap(lambda x: '{:,.2f}'.format(x))
+        fig = {"data": table(stat_df), "layout":go.Layout(title=f"AERONET-OC matchup; metrics summary for "+sensor, height=600)}
+        if publish:
+        #fig=ff.create_table(stat_df,index=True)
+            py.plot(fig,filename='acix-ii_grs_aeronet-oc_metrics_table_by_'+by_+'_' + sensor,auto_open=False)
+        else:
+            po.plot(fig,filename=os.path.join(odir,'acix-ii_grs_aeronet-oc_metrics_table_by_'+by_+'_' + sensor))
+
 
     #------------------------
     # error distribution
@@ -119,8 +186,8 @@ for sensor in sensors:
     #------------------------
     # interactive plot
     #------------------------
-    for by_ in ['site','wl']:
-        fig = px.scatter(dff, x="Rrs", y="Rrs_50%",  color="wl", hover_name="site", hover_data=['date','satellite','Rrs_count'],
+    for by_ in ['site','Wavelength (nm)']:
+        fig = px.scatter(dff, x="Rrs", y="Rrs_50%",  color="Wavelength (nm)", hover_name="site", hover_data=['date','satellite','Rrs_count'],
                          trendline="ols", trendline_color_override='red',opacity=0.5,
                          range_x=[-0.005,0.04],range_y=[-0.005,0.04],animation_frame=by_,
                          title="AERONET-OC matchup for "+sensor, error_y="Rrs_std")# ,height =900,width=1200)
@@ -131,6 +198,7 @@ for sensor in sensors:
                 mode="lines",
                 line=go.scatter.Line(color="black",dash='dot'),
                 showlegend=False))
+
 
         fig.update_xaxes(showgrid=False)
         fig.update_traces(
@@ -150,9 +218,9 @@ for sensor in sensors:
     #------------------------
     # plot by subplot
     #------------------------
-    fig = px.scatter(dff, x="Rrs", y="Rrs_50%",  color="wl", hover_name="site", hover_data=['date','satellite'],
+    fig = px.scatter(dff, x="Rrs", y="Rrs_50%",  color="Wavelength (nm)", hover_name="site", hover_data=['date','satellite'],
                      facet_col="site", trendline="ols", trendline_color_override='red',opacity=0.5,
-                     range_x=[-0.005,0.04],range_y=[-0.005,0.04],animation_group='wl',
+                     range_x=[-0.005,0.04],range_y=[-0.005,0.04],animation_group='Wavelength (nm)',
                      title="AERONET-OC matchup for "+sensor, error_y="Rrs_std" ,facet_col_wrap=ncol,height =2100)
 
     for icol, irow in  itertools.product(range(4),range(len(fig._validate_get_grid_ref()))):
@@ -164,6 +232,7 @@ for sensor in sensors:
             line=go.scatter.Line(color="black",dash='dot'),
             showlegend=False),row=irow+1,col=icol+1
         )
+       # fig.add_annotation(text='Acceptance: '+str(icol)+'%\nAlpha:'+str(irow),row=irow+1,col=icol+1)
 
     fig.update_layout(title_font_size=24)
     fig.update_xaxes(showgrid=False)
