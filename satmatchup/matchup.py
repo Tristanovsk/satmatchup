@@ -1,6 +1,11 @@
 import chart_studio
 chart_studio.tools.set_credentials_file(username='tristanovsk', api_key='e2aYFdkLAwuAnCZn8aWe')
 import chart_studio.plotly as py
+import plotly.express as px
+import plotly.offline as po
+import plotly.graph_objs as go
+import plotly.figure_factory as ff
+
 import os, sys
 import matplotlib.pyplot as plt
 import itertools
@@ -93,14 +98,6 @@ df_tot['AD']=df_tot['Rrs_50%'] - df_tot.Rrs
 df_tot['wl_str'] = df_tot.wl.astype('str')
 # df_tot['row']=0
 # df_tot.loc[df_tot.wl>700,'row']=1
-
-
-
-import plotly.express as px
-import plotly.offline as po
-import plotly.graph_objs as go
-import plotly.figure_factory as ff
-
 
 
 # define parameters to be formated as decimal (.4f) or percentage (.2f)
